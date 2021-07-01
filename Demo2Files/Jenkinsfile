@@ -1,0 +1,60 @@
+node {
+
+    cleanWs()	//wipe workspace
+    
+    stage('clone'){
+        BUILD_BRANCH = 'master'
+
+        checkout([$class: 'GitSCM',
+        branches: [[name: BUILD_BRANCH]],
+        extensions: [[$class: 'WipeWorkspace']],
+        userRemoteConfigs: [[credentialsId: 'gitlab-creds', url: 'https://gitlab.com/m1r3x/demo2.git']]
+        ])
+    }
+
+    stage('build'){
+
+        build_image = docker.build("m1r3x/demo2:petclinic-build", "-f Demo2Files/build/Dockerfile .")	//building build_image
+
+        sh 'docker run -v /var/lib/jenkins/.m2:/root/.m2 -v $WORKSPACE:/root/petclinic m1r3x/demo2:petclinic-build /bin/bash Demo2Files/build/build.sh'		//running the build cointainer with host m2 repo and workspace mounted to build the app file and move it to workspace	
+
+        db_image = docker.build("m1r3x/demo2:petclinic-db", "-f Demo2Files/db/Dockerfile .")	//building db and app images
+
+        app_image = docker.build("m1r3x/demo2:petclinic-app", "-f Demo2Files/app/Dockerfile .")
+
+    }
+
+    
+
+    stage('test'){
+        withCredentials([file(credentialsId: 'var-file-secret', variable: 'vars_file')]){	//using secret file as environment variables file for the containers
+
+            docker.image('m1r3x/demo2:petclinic-db').withRun('--env-file $vars_file -v /mysql-data:/var/lib/mysql -p 3306:3306 --name mysql --restart on-failure --network petclinic-network') {	//run options for the container
+    
+                docker.image('m1r3x/demo2:petclinic-app').withRun('--env-file $vars_file -p 8081:8080 --name app --restart on-failure --network petclinic-network') {
+
+                    sh 'sleep 60'	//wait for services to be up and to show containers in demo
+
+	            response = sh(returnStdout: true, script: 'curl http://localhost:8081/actuator/health')	
+
+	            if(response != '{"status":"UP"}'){	//healthcheck
+		        error "Petclinic does not work. Build failed!"	//stop the build if app is not up
+	            }
+
+                }
+           }
+
+       }
+    }
+
+
+    stage('push'){
+        docker.withRegistry('https://registry.gitlab.com/m1r3x/demo2', 'gitlab-creds') {	//authenticating to my gitlab container regisrty with username and password
+
+        db_image.push()	//pushing images to registry
+        app_image.push()
+    }
+
+    }   
+        
+}
