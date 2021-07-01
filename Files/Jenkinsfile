@@ -14,13 +14,13 @@ node {
 
     stage('build'){
 
-        build_image = docker.build("m1r3x/demo2:petclinic-build", "-f Demo2Files/build/Dockerfile .")	//building build_image
+        build_image = docker.build("m1r3x/demo2:petclinic-build", "-f Files/build/Dockerfile .")	//building build_image
 
-        sh 'docker run -v /var/lib/jenkins/.m2:/root/.m2 -v $WORKSPACE:/root/petclinic m1r3x/demo2:petclinic-build /bin/bash Demo2Files/build/build.sh'		//running the build cointainer with host m2 repo and workspace mounted to build the app file and move it to workspace	
+        sh 'docker run -v /var/lib/jenkins/.m2:/root/.m2 -v $WORKSPACE:/root/petclinic m1r3x/demo2:petclinic-build /bin/bash Files/build/build.sh'		//running the build cointainer with host m2 repo and workspace mounted to build the app file and move it to workspace	
 
-        db_image = docker.build("m1r3x/demo2:petclinic-db", "-f Demo2Files/db/Dockerfile .")	//building db and app images
+        db_image = docker.build("m1r3x/demo2:petclinic-db", "-f Files/db/Dockerfile .")	//building db and app images
 
-        app_image = docker.build("m1r3x/demo2:petclinic-app", "-f Demo2Files/app/Dockerfile .")
+        app_image = docker.build("m1r3x/demo2:petclinic-app", "-f Files/app/Dockerfile .")
 
     }
 
